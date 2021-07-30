@@ -46,6 +46,8 @@ def main():
     home.get_current_state()
 
     home.onEvent += onHomematicEvents
+    home.onWsError += onWebsocketError
+    home.websocket_reconnect_on_error = False
     home.enable_events()
     websocket.enableTrace(False) # home.enable_events() turns this on
 
@@ -58,7 +60,13 @@ def main():
         return
 
 def onMQTTConnect(client, userdata, flags, rc):
-    logger.info("MQTT connection status: %s", str(rc))
+    logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
+
+def onWebsocketError(err):
+    logger.error("Websocket disconnected, trying to reconnect: %s", err)
+    home.disable_events()
+    home.enable_events()
+    websocket.enableTrace(False) # home.enable_events() turns this on
 
 def onHomematicEvents(eventList):
     for event in eventList:
@@ -100,6 +108,7 @@ def onHomematicEvents(eventList):
             if type(group) == HeatingGroup:
                 topic += "groups/heating/" + group.id
                 data = {
+                    "label": group.label,
                     "set": group.setPointTemperature,
                     "temperature": group.actualTemperature,
                     "humidity": group.humidity,
@@ -116,7 +125,7 @@ def onHomematicEvents(eventList):
         for k, v in data.items():
             fullTopic = topic + "/" + k
             logger.debug("Publishing to %s: %s", fullTopic, v)
-            client.publish(topic + "/" + k, v, qos=0, retain=True)
+            client.publish(fullTopic, v, qos=0, retain=True)
 
 if __name__ == "__main__":
     main()

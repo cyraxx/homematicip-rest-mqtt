@@ -70,51 +70,51 @@ def onWebsocketError(err):
 
 def onHomematicEvents(eventList):
     for event in eventList:
+        eventType = event["eventType"]
+        payload = event["data"]
+        payloadType = type(payload)
+
+        logger.debug("Received event of type %s: %s", eventType, payload)
+
         topic = "homematicip/"
 
-        logger.debug("Received event of type %s: %s", event["eventType"], event["data"])
-
-        if event["eventType"] == "DEVICE_CHANGED":
-            device = event["data"]
-
-            if type(device) in (HeatingThermostat, HeatingThermostatCompact):
-                topic += "devices/thermostat/" + device.id
+        if eventType == "DEVICE_CHANGED":
+            if payloadType in (HeatingThermostat, HeatingThermostatCompact):
+                topic += "devices/thermostat/" + payload.id
                 data = {
-                    "low_battery": device.lowBat,
-                    "set": device.setPointTemperature,
-                    "temperature": device.valveActualTemperature,
-                    "valve": device.valvePosition
+                    "low_battery": payload.lowBat,
+                    "set": payload.setPointTemperature,
+                    "temperature": payload.valveActualTemperature,
+                    "valve": payload.valvePosition
                 }
-            elif type(device) in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
-                topic += "devices/window/" + device.id
+            elif payloadType in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
+                topic += "devices/window/" + payload.id
                 data = {
-                    "low_battery": device.lowBat,
-                    "state": device.windowState
+                    "low_battery": payload.lowBat,
+                    "state": payload.windowState
                 }
-            elif type(device) == WallMountedThermostatPro:
-                topic += "devices/wall_thermostat/" + device.id
+            elif payloadType == WallMountedThermostatPro:
+                topic += "devices/wall_thermostat/" + payload.id
                 data = {
-                    "low_battery": device.lowBat,
-                    "set": device.setPointTemperature,
-                    "temperature": device.actualTemperature,
-                    "humidity": device.humidity
+                    "low_battery": payload.lowBat,
+                    "set": payload.setPointTemperature,
+                    "temperature": payload.actualTemperature,
+                    "humidity": payload.humidity
                 }
             else:
                 continue
 
-        elif event["eventType"] == "GROUP_CHANGED":
-            group = event["data"]
-
-            if type(group) == HeatingGroup:
-                topic += "groups/heating/" + group.id
+        elif eventType == "GROUP_CHANGED":
+            if payloadType == HeatingGroup:
+                topic += "groups/heating/" + payload.id
                 data = {
-                    "label": group.label,
-                    "set": group.setPointTemperature,
-                    "temperature": group.actualTemperature,
-                    "humidity": group.humidity,
-                    "valve": group.valvePosition,
-                    "window": group.windowState,
-                    "mode": group.controlMode
+                    "label": payload.label,
+                    "set": payload.setPointTemperature,
+                    "temperature": payload.actualTemperature,
+                    "humidity": payload.humidity,
+                    "valve": payload.valvePosition,
+                    "window": payload.windowState,
+                    "mode": payload.controlMode
                 }
             else:
                 continue

@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--server', required=True, help="Address of the MQTT server")
 parser.add_argument('--port', type=int, default=1883, help="Port of the MQTT server")
 parser.add_argument('--debug', action="store_true", help="Enable debug logging")
+parser.add_argument('--no-publish', action="store_true", help="Don't actually publish messages (log only)")
 args = parser.parse_args()
 
 if args.debug:
@@ -130,7 +131,8 @@ def updateHomematicObject(payload):
     for k, v in data.items():
         fullTopic = topic + "/" + k
         logger.debug("Publishing to %s: %s", fullTopic, v)
-        client.publish(fullTopic, v, qos=0, retain=True)
+        if not args.no_publish:
+            client.publish(fullTopic, v, qos=0, retain=True)
 
 if __name__ == "__main__":
     main()

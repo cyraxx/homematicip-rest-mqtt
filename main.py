@@ -28,13 +28,6 @@ client = mqtt.Client()
 home = Home()
 
 def main():
-    client.on_connect = onMQTTConnect
-    try:
-        client.connect(args.server, args.port)
-    except Exception as err:
-        logger.error("Error connecting to MQTT server: %s", err)
-        return
-
     config = homematicip.find_and_load_config_file()
     if config is None:
         logger.error("No configuration file found. Run hmip_generate_auth_token.py and copy config.ini to a suitable location.")
@@ -45,13 +38,12 @@ def main():
 
     home.get_current_state()
 
-    home.onEvent += onHomematicEvents
-    home.onWsError += onWebsocketError
-    home.websocket_reconnect_on_error = False
-    home.enable_events()
-    websocket.enableTrace(False) # home.enable_events() turns this on
-
-    logger.info("Running")
+    client.on_connect = onMQTTConnect
+    try:
+        client.connect(args.server, args.port)
+    except Exception as err:
+        logger.error("Error connecting to MQTT server: %s", err)
+        return
 
     try:
         while True:
@@ -61,6 +53,22 @@ def main():
 
 def onMQTTConnect(client, userdata, flags, rc):
     logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
+
+    logger.debug("Performing initial group sync")
+    for group in home.groups:
+        updateHomematicObject(group)
+
+    logger.debug("Performing initial device sync")
+    for device in home.devices:
+        updateHomematicObject(device)
+
+    home.onEvent += onHomematicEvents
+    home.onWsError += onWebsocketError
+    home.websocket_reconnect_on_error = False
+    home.enable_events()
+    websocket.enableTrace(False) # home.enable_events() turns this on
+
+    logger.info("Running")
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
@@ -72,60 +80,57 @@ def onHomematicEvents(eventList):
     for event in eventList:
         eventType = event["eventType"]
         payload = event["data"]
-        payloadType = type(payload)
 
         logger.debug("Received event of type %s: %s", eventType, payload)
-
-        topic = "homematicip/"
-
-        if eventType == "DEVICE_CHANGED":
-            if payloadType in (HeatingThermostat, HeatingThermostatCompact):
-                topic += "devices/thermostat/" + payload.id
-                data = {
-                    "low_battery": payload.lowBat,
-                    "set": payload.setPointTemperature,
-                    "temperature": payload.valveActualTemperature,
-                    "valve": payload.valvePosition
-                }
-            elif payloadType in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
-                topic += "devices/window/" + payload.id
-                data = {
-                    "low_battery": payload.lowBat,
-                    "state": payload.windowState
-                }
-            elif payloadType == WallMountedThermostatPro:
-                topic += "devices/wall_thermostat/" + payload.id
-                data = {
-                    "low_battery": payload.lowBat,
-                    "set": payload.setPointTemperature,
-                    "temperature": payload.actualTemperature,
-                    "humidity": payload.humidity
-                }
-            else:
-                continue
-
-        elif eventType == "GROUP_CHANGED":
-            if payloadType == HeatingGroup:
-                topic += "groups/heating/" + payload.id
-                data = {
-                    "label": payload.label,
-                    "set": payload.setPointTemperature,
-                    "temperature": payload.actualTemperature,
-                    "humidity": payload.humidity,
-                    "valve": payload.valvePosition,
-                    "window": payload.windowState,
-                    "mode": payload.controlMode
-                }
-            else:
-                continue
-
-        else:
+        if not eventType in ("DEVICE_CHANGED", "GROUP_CHANGED"):
             continue
 
-        for k, v in data.items():
-            fullTopic = topic + "/" + k
-            logger.debug("Publishing to %s: %s", fullTopic, v)
-            client.publish(fullTopic, v, qos=0, retain=True)
+        updateHomematicObject(payload)
+
+def updateHomematicObject(payload):
+    payloadType = type(payload)
+    topic = "homematicip/"
+
+    if payloadType == HeatingGroup:
+        topic += "groups/heating/" + payload.id
+        data = {
+            "label": payload.label,
+            "set": payload.setPointTemperature,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "valve": payload.valvePosition,
+            "window": payload.windowState,
+            "mode": payload.controlMode
+        }
+    elif payloadType in (HeatingThermostat, HeatingThermostatCompact):
+        topic += "devices/thermostat/" + payload.id
+        data = {
+            "low_battery": payload.lowBat,
+            "set": payload.setPointTemperature,
+            "temperature": payload.valveActualTemperature,
+            "valve": payload.valvePosition
+        }
+    elif payloadType in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
+        topic += "devices/window/" + payload.id
+        data = {
+            "low_battery": payload.lowBat,
+            "state": payload.windowState
+        }
+    elif payloadType == WallMountedThermostatPro:
+        topic += "devices/wall_thermostat/" + payload.id
+        data = {
+            "low_battery": payload.lowBat,
+            "set": payload.setPointTemperature,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity
+        }
+    else:
+        return
+
+    for k, v in data.items():
+        fullTopic = topic + "/" + k
+        logger.debug("Publishing to %s: %s", fullTopic, v)
+        client.publish(fullTopic, v, qos=0, retain=True)
 
 if __name__ == "__main__":
     main()

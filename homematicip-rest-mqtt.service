@@ -1,0 +1,20 @@
+# Example systemd Service Unit file to run homematicip-rest-mqtt in the background on a Raspberry Pi.
+# To use, copy this file to /etc/systemd/system. Make sure to adjust user name and paths as necessary.
+
+# Start the service using systemctl start homematicip-rest-mqtt.service (will also be started on system boot).
+# Check the status and logs using systemctl status homematicip-rest-mqtt.service.
+
+
+[Unit]
+Description=Homematic IP MQTT bridge
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=always
+User=pi
+ExecStart=/usr/bin/python3 /home/pi/homematicip-rest-mqtt/main.py --server 127.0.0.1
+WorkingDirectory=/home/pi/homematicip-rest-mqtt
+
+[Install]
+WantedBy=multi-user.target

@@ -18,6 +18,8 @@ containing your auth token.
 
 Then simply run `main.py --server <ip of your MQTT server>`, add `--debug` if you want to see what's going on.
 
+To run as a daemon using systemd, see `homematicip-rest-mqtt.service` for a starting point.
+
 # Supported devices
 
 Currently only a handful of devices are supported, simply because these are the ones I happened to need.

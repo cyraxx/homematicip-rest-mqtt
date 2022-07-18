@@ -67,7 +67,6 @@ def onMQTTConnect(client, userdata, flags, rc):
     home.onWsError += onWebsocketError
     home.websocket_reconnect_on_error = False
     home.enable_events()
-    websocket.enableTrace(False) # home.enable_events() turns this on
 
     logger.info("Running")
 
@@ -75,7 +74,6 @@ def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
     home.disable_events()
     home.enable_events()
-    websocket.enableTrace(False) # home.enable_events() turns this on
 
 def onHomematicEvents(eventList):
     for event in eventList:

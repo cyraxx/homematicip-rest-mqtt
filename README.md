@@ -10,10 +10,11 @@ way around. In other words, you can't control your devices through MQTT but only
 
 # Instructions
 
-Install the [homematicip-rest-api Python module](https://github.com/coreGreenberet/homematicip-rest-api) and
-follow the instructions there to install the package and generate the config file.
+Install the module requirements using `pip install -r requirements.txt`.
 
-Also install the MQTT package (`pip install paho-mqtt`).
+Before first use, you need to follow the instructions for
+[homematicip-rest-api](https://github.com/hahn-th/homematicip-rest-api#usage) to generate the config file
+containing your auth token.
 
 Then simply run `main.py --server <ip of your MQTT server>`, add `--debug` if you want to see what's going on.
 

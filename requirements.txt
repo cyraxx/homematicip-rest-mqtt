@@ -1,0 +1,2 @@
+paho-mqtt
+homematicip>=1.0.5

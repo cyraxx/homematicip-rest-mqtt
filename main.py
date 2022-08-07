@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 
 import homematicip
 from homematicip.home import Home
-from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro
+from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor
 from homematicip.group import HeatingGroup
 
 logging.basicConfig(level=logging.INFO)
@@ -119,6 +119,23 @@ def updateHomematicObject(payload):
             "set": payload.setPointTemperature,
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
+        }
+    elif payloadType == WeatherSensor:
+        topic += "devices/weather/" + payload.id
+        data = {
+            "low_battery": payload.lowBat,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "illumination": payload.illumination,
+            "illumination_threshold_sunshine": payload.illuminationThresholdSunshine,
+            "storm": payload.storm,
+            "sunshine": payload.sunshine,
+            "today_sunshine_duration": payload.todaySunshineDuration,
+            "total_sunshine_duration": payload.totalSunshineDuration,
+            "wind_value_type": payload.windValueType,
+            "wind_speed": payload.windSpeed,
+            "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
+            "vapor_amount": payload.vaporAmount
         }
     else:
         return

@@ -63,3 +63,23 @@ Homematic IP product codes: HMIP-SWDO, HMIP-SWDO-I, HMIP-SWDM, HMIP-SWDM-B2, HMI
 MQTT topics:
 - `homematicip/devices/window/<device_id>/low_battery`: Low battery state
 - `homematicip/devices/window/<device_id>/state`: Current window state (`OPEN`,`CLOSED`,`TILTED`)
+
+## Weather sensor (basic)
+
+Homematic IP product codes: HmIP-SWO-B
+
+MQTT topics:
+- `homematicip/devices/weather/<device_id>/low_battery`: Low battery state
+- `homematicip/devices/weather/<device_id>/temperature`: Current temperature
+- `homematicip/devices/weather/<device_id>/humidity`: Current humidity
+- `homematicip/devices/weather/<device_id>/illumination`: Current illumination
+- `homematicip/devices/weather/<device_id>/illumination_threshold_sunshine`: Illumination threshold sunshine
+- `homematicip/devices/weather/<device_id>/storm`: Storm
+- `homematicip/devices/weather/<device_id>/sunshine`: Sunshine
+- `homematicip/devices/weather/<device_id>/today_sunshine_duration`: Today sunshine duration
+- `homematicip/devices/weather/<device_id>/total_sunshine_duration`: Total sunshine duration
+- `homematicip/devices/weather/<device_id>/wind_value_type`: Wind value type
+- `homematicip/devices/weather/<device_id>/wind_speed`: Wind speed
+- `homematicip/devices/weather/<device_id>/yesterday_sunshine_duration`: Yesterday sunshine duration
+- `homematicip/devices/weather/<device_id>/vapor_amount`: Vapor amount
+

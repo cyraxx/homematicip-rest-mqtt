@@ -87,3 +87,12 @@ MQTT topics:
 - `homematicip/devices/weather/<device_id>/yesterday_sunshine_duration`: Yesterday sunshine duration
 - `homematicip/devices/weather/<device_id>/vapor_amount`: Vapor amount
 
+## Hoermann Gate Drive
+
+Homematic IP product codes: HmIP-MOD-HO
+
+MQTT topics:
+- `homematicip/devices/hoermanndrive/<device_id>/state`: Current door state (`CLOSED`, `OPEN`, `STOP`, `PARTIAL_OPEN`)
+
+MQTT topics for commands:
+- `cmd/homematicip/devices/hoermanndrive/<device_id>/state`: `CLOSED`, `OPEN`, `STOP` or `PARTIAL_OPEN`

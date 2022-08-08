@@ -7,8 +7,11 @@ import paho.mqtt.client as mqtt
 
 import homematicip
 from homematicip.home import Home
-from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor
+from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule
 from homematicip.group import HeatingGroup
+from homematicip.base.enums import DoorCommand
+
+#from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -58,6 +61,9 @@ def onMQTTConnect(client, userdata, flags, rc):
     # subscribe to topic for changing the temperature for a heating group
     client.subscribe("cmd/homematicip/groups/heating/+/set")
 
+    # subscribe to topic for opening hoermann gate
+    client.subscribe("cmd/homematicip/devices/hoermanndrive/+/state")
+
     logger.debug("Performing initial group sync")
     for group in home.groups:
         updateHomematicObject(group)
@@ -86,7 +92,9 @@ def onMQTTMessage(client, userdata, msg):
 
     if deviceOrGroup == "groups":
         updateHomematicGroup(id, value)
-    else: #elif deviceOrGroup == "devices":
+    elif deviceOrGroup == "devices":
+        updateHomematicDevice(id, value)
+    else:
         logger.warning("Updating " + deviceOrGroup + " not yet implemented")
 
 def updateHomematicGroup(groupId, value):
@@ -105,6 +113,34 @@ def updateHomematicGroup(groupId, value):
 
     except Exception as ex:
         logger.error("updateHomematicGroup failed: " + str(ex))
+
+def updateHomematicDevice(deviceId, value):
+    try:
+        device = home.search_device_by_id(deviceId)
+        deviceType = type(device)
+        errorCode = ''
+        if deviceType == HoermannDrivesModule:
+            if value == "CLOSED":
+                doorCommand = DoorCommand.CLOSE
+            elif value == "OPEN":
+                doorCommand = DoorCommand.OPEN
+            elif value == "STOP":
+                doorCommand = DoorCommand.STOP
+            elif value == "PARTIAL_OPEN":
+                doorCommand = DoorCommand.PARTIAL_OPEN
+            else:
+                logger.error("Invalid command for hoermann drive. Command: " + value)
+                return
+            result = device.send_door_command(doorCommand=doorCommand)
+            errorCode = result["errorCode"]
+        else:
+            logger.error("No updates allowed on devices of type " + str(deviceType))
+
+        if errorCode:
+            logger.error("Updating " + str(deviceType)  + " failed with code: " + errorCode)
+
+    except Exception as ex:
+        logger.error("updateHomematicDevice failed: " + str(ex))
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
@@ -175,6 +211,11 @@ def updateHomematicObject(payload):
             "wind_speed": payload.windSpeed,
             "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
             "vapor_amount": payload.vaporAmount
+        }
+    elif payloadType == HoermannDrivesModule:
+        topic += "devices/hoermanndrive/" + payload.id
+        data = {
+            "state": payload.doorState
         }
     else:
         return

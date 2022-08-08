@@ -148,7 +148,7 @@ def updateHomematicDevice(deviceId, value):
         logger.error("updateHomematicDevice failed: " + str(ex))
 
 def updateHomematicHome(type, value):
-    try:
+    #try:
         errorCode = ''
         if type == "alarm":
             if value == 'ABSENCE_MODE':
@@ -161,16 +161,15 @@ def updateHomematicHome(type, value):
                 internalActive = False
                 externalActive = False
 
-            result = home.set_security_zones_activation(internalActive, externalActive)
-            errorCode = result["errorCode"]
+            home.set_security_zones_activation(internalActive, externalActive)
         else:
             logger.error("No updates allowed on home for type " + str(type))
 
         if errorCode:
             logger.error("Updating " + str(type)  + " failed with code: " + errorCode)
 
-    except Exception as ex:
-        logger.error("updateHomematicDevice failed: " + str(ex))
+    #except Exception as ex:
+    #    logger.error("updateHomematicHome failed: " + str(ex))
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)

@@ -55,8 +55,8 @@ def main():
 def onMQTTConnect(client, userdata, flags, rc):
     logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
 
-    # subscribe to all set-Topics
-    client.subscribe("cmd/homematicip/devices/+/+/+")
+    # subscribe to topic for changing the temperature for a heating group
+    client.subscribe("cmd/homematicip/groups/heating/+/set")
 
     logger.debug("Performing initial group sync")
     for group in home.groups:
@@ -74,30 +74,37 @@ def onMQTTConnect(client, userdata, flags, rc):
     logger.info("Running")
 
 def onMQTTMessage(client, userdata, msg):
-    # process received command
-    logger.debug("Message received-> " + msg.topic + " " + str(msg.payload))
+    logger.info("Message received-> " + msg.topic + " " + str(msg.payload))
 
-    # TODO: parse topic
-    deviceId = "11b9746f-7891-4592-8ac9-a8a5e3cd24fc"
+    value = msg.payload.decode("UTF-8")
 
+    # parse topic
+    topicAsArray = msg.topic.split('/')
+    deviceOrGroup = topicAsArray[2]
+    type = topicAsArray[3]
+    id = topicAsArray[4]
+
+    if deviceOrGroup == "groups":
+        updateHomematicGroup(id, value)
+    else: #elif deviceOrGroup == "devices":
+        logger.warning("Updating " + deviceOrGroup + " not yet implemented")
+
+def updateHomematicGroup(groupId, value):
     try:
-        # check if update applicable (eg. wrong item, wrong property)
-        #device = home.search_device_by_id(deviceId)
-        device =  home.search_group_by_id(deviceId)
-
-        deviceType = type(device)
-        print(deviceType)
-
-        if deviceType == HeatingGroup:
-            device.set_point_temperature(13)
+        group =  home.search_group_by_id(groupId)
+        groupType = type(group)
+        errorCode = ''
+        if groupType == HeatingGroup:
+            result = group.set_point_temperature(value)
+            errorCode = result["errorCode"]
         else:
-            logger.warning("No updates allowed on device of type " + str(deviceType))
-            return
+            logger.error("No updates allowed on groups of type " + str(groupType))
 
-        #device.is_update_applicable()
-        device.authorizeUpdate()
+        if errorCode:
+            logger.error("Updating " + str(groupType)  + " failed with code: " + errorCode)
+
     except Exception as ex:
-        logger.error("Processing received command failed: " + str(ex))
+        logger.error("updateHomematicGroup failed: " + str(ex))
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)

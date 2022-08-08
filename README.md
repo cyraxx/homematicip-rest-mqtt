@@ -5,8 +5,9 @@ and an MQTT broker so you can use your home automation software of choice to int
 
 # ⚠️ Work in progress
 
-I'm still working on this. In its current state, it offers Homematic IP to MQTT functionality but not the other
-way around. In other words, you can't control your devices through MQTT but only receive their current state.
+I'm still working on this. In its current state, it offers Homematic IP to MQTT functionality and very
+basically the other way around. In other words, you receive their current state but currently it is only
+possible to change the set temperature for a heating group.
 
 # Instructions
 
@@ -35,6 +36,9 @@ MQTT topics:
 - `homematicip/groups/heating/<group_id>/valve`: Current valve position (0..1)
 - `homematicip/groups/heating/<group_id>/window`: Current window state (`OPEN`,`CLOSED`,`TILTED`)
 - `homematicip/groups/heating/<group_id>/mode`: Current control mode (`AUTOMATIC`, `MANUAL`, `ECO`)
+
+MQTT topics for commands:
+- `cmd/homematicip/groups/heating/<group_id>/set`: Change the set temperature
 
 ## Heating thermostat (valve)
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import random
 
 import paho.mqtt.client as mqtt
 
@@ -22,7 +23,8 @@ args = parser.parse_args()
 if args.debug:
     logger.setLevel(logging.DEBUG)
 
-client = mqtt.Client()
+client_id = f'homematicip-mqtt-{random.randint(0, 1000)}'
+client = mqtt.Client(client_id)
 home = Home()
 
 def main():
@@ -37,6 +39,7 @@ def main():
     home.get_current_state()
 
     client.on_connect = onMQTTConnect
+    client.on_message = onMQTTMessage
     try:
         client.connect(args.server, args.port)
     except Exception as err:
@@ -52,6 +55,9 @@ def main():
 def onMQTTConnect(client, userdata, flags, rc):
     logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
 
+    # subscribe to all set-Topics
+    client.subscribe("cmd/homematicip/devices/+/+/+")
+
     logger.debug("Performing initial group sync")
     for group in home.groups:
         updateHomematicObject(group)
@@ -66,6 +72,32 @@ def onMQTTConnect(client, userdata, flags, rc):
     home.enable_events()
 
     logger.info("Running")
+
+def onMQTTMessage(client, userdata, msg):
+    # process received command
+    logger.debug("Message received-> " + msg.topic + " " + str(msg.payload))
+
+    # TODO: parse topic
+    deviceId = "11b9746f-7891-4592-8ac9-a8a5e3cd24fc"
+
+    try:
+        # check if update applicable (eg. wrong item, wrong property)
+        #device = home.search_device_by_id(deviceId)
+        device =  home.search_group_by_id(deviceId)
+
+        deviceType = type(device)
+        print(deviceType)
+
+        if deviceType == HeatingGroup:
+            device.set_point_temperature(13)
+        else:
+            logger.warning("No updates allowed on device of type " + str(deviceType))
+            return
+
+        #device.is_update_applicable()
+        device.authorizeUpdate()
+    except Exception as ex:
+        logger.error("Processing received command failed: " + str(ex))
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)

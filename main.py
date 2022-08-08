@@ -7,11 +7,11 @@ import paho.mqtt.client as mqtt
 
 import homematicip
 from homematicip.home import Home
-from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule
+from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
 
-#from pprint import pprint
+from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -64,6 +64,9 @@ def onMQTTConnect(client, userdata, flags, rc):
     # subscribe to topic for opening hoermann gate
     client.subscribe("cmd/homematicip/devices/hoermanndrive/+/state")
 
+    # subscribe to topic for changing alarm status
+    client.subscribe("cmd/homematicip/home/alarm/+/state")
+
     logger.debug("Performing initial group sync")
     for group in home.groups:
         updateHomematicObject(group)
@@ -94,6 +97,8 @@ def onMQTTMessage(client, userdata, msg):
         updateHomematicGroup(id, value)
     elif deviceOrGroup == "devices":
         updateHomematicDevice(id, value)
+    elif deviceOrGroup == "home":
+        updateHomematicHome(type, value)
     else:
         logger.warning("Updating " + deviceOrGroup + " not yet implemented")
 
@@ -142,6 +147,31 @@ def updateHomematicDevice(deviceId, value):
     except Exception as ex:
         logger.error("updateHomematicDevice failed: " + str(ex))
 
+def updateHomematicHome(type, value):
+    try:
+        errorCode = ''
+        if type == "alarm":
+            if value == 'ABSENCE_MODE':
+                internalActive = True
+                externalActive = True
+            elif value == 'PRESENCE_MODE':
+                internalActive = False
+                externalActive = True
+            else:
+                internalActive = False
+                externalActive = False
+
+            result = home.set_security_zones_activation(internalActive, externalActive)
+            errorCode = result["errorCode"]
+        else:
+            logger.error("No updates allowed on home for type " + str(type))
+
+        if errorCode:
+            logger.error("Updating " + str(type)  + " failed with code: " + errorCode)
+
+    except Exception as ex:
+        logger.error("updateHomematicDevice failed: " + str(ex))
+
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
     home.disable_events()
@@ -153,7 +183,7 @@ def onHomematicEvents(eventList):
         payload = event["data"]
 
         logger.debug("Received event of type %s: %s", eventType, payload)
-        if not eventType in ("DEVICE_CHANGED", "GROUP_CHANGED"):
+        if not eventType in ("DEVICE_CHANGED", "GROUP_CHANGED", "HOME_CHANGED"):
             continue
 
         updateHomematicObject(payload)
@@ -217,7 +247,38 @@ def updateHomematicObject(payload):
         data = {
             "state": payload.doorState
         }
+    elif payloadType == MotionDetectorIndoor:
+        topic += "devices/motiondetector/" + payload.id
+        data = {
+            "low_battery": payload.lowBat,
+            "current_illumination": payload.currentIllumination,
+            "illumination": payload.illumination,
+            "motionDetected": payload.motionDetected
+        }
+    elif payloadType == SmokeDetector:
+        topic += "devices/smokedetector/" + payload.id
+        data = {
+            "low_battery": payload.lowBat
+        }
+    elif payloadType == AlarmSirenIndoor:
+        topic += "devices/alarmsiren/" + payload.id
+        data = {
+            "low_battery": payload.lowBat
+        }
+    elif payloadType == Home:
+        topic += "home/alarm/" + payload.id
+        internalActive, externalActive = payload.get_security_zones_activation()
+        if internalActive and externalActive:
+            activationStatus = 'ABSENCE_MODE'
+        elif externalActive and not internalActive:
+            activationStatus = 'PRESENCE_MODE'
+        else:
+            activationStatus = 'OFF'
+        data = {
+            "state": activationStatus
+        }
     else:
+        logger.debug("Unhandled type: " + str(payloadType))
         return
 
     for k, v in data.items():

@@ -68,6 +68,30 @@ MQTT topics:
 - `homematicip/devices/window/<device_id>/low_battery`: Low battery state
 - `homematicip/devices/window/<device_id>/state`: Current window state (`OPEN`,`CLOSED`,`TILTED`)
 
+## Motion detector indoor
+
+Homematic IP product codes: HMIP-SMI
+
+MQTT topics:
+- `homematicip/devices/motiondetector/<device_id>/low_battery`: Low battery state
+- `homematicip/devices/weather/<device_id>/current_illumination`: Current illumination
+- `homematicip/devices/weather/<device_id>/illumination`: Illumination
+- `homematicip/devices/weather/<device_id>/motion_detected`: Motion detected
+
+## Smoke detector
+
+Homematic IP product codes: HMIP-SWSD
+
+MQTT topics:
+- `homematicip/devices/smokedetector/<device_id>/low_battery`: Low battery state
+
+## Alarm siren indoor
+
+Homematic IP product codes: HMIP-ASIR-2
+
+MQTT topics:
+- `homematicip/devices/alarmsiren/<device_id>/low_battery`: Low battery state
+
 ## Weather sensor (basic)
 
 Homematic IP product codes: HmIP-SWO-B
@@ -96,3 +120,13 @@ MQTT topics:
 
 MQTT topics for commands:
 - `cmd/homematicip/devices/hoermanndrive/<device_id>/state`: `CLOSED`, `OPEN`, `STOP` or `PARTIAL_OPEN`
+
+## Home (slarm status)
+
+Homematic IP product codes: n/a
+
+MQTT topics:
+- `homematicip/home/<home_id>/state`: Current alarm state (`OFF`, `ABSENCE_MODE`, `PRESENCE_MODE`)
+
+MQTT topics for commands:
+- `homematicip/home/<home_id>/state`: `OFF`, `ABSENCE_MODE` or `PRESENCE_MODE`

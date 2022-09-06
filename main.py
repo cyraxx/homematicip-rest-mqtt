@@ -148,7 +148,7 @@ def updateHomematicDevice(deviceId, value):
         logger.error("updateHomematicDevice failed: " + str(ex))
 
 def updateHomematicHome(type, value):
-    #try:
+    try:
         errorCode = ''
         if type == "alarm":
             if value == 'ABSENCE_MODE':
@@ -168,8 +168,8 @@ def updateHomematicHome(type, value):
         if errorCode:
             logger.error("Updating " + str(type)  + " failed with code: " + errorCode)
 
-    #except Exception as ex:
-    #    logger.error("updateHomematicHome failed: " + str(ex))
+    except Exception as ex:
+        logger.error("updateHomematicHome failed: " + str(ex))
 
 def onWebsocketError(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
@@ -252,7 +252,7 @@ def updateHomematicObject(payload):
             "low_battery": payload.lowBat,
             "current_illumination": payload.currentIllumination,
             "illumination": payload.illumination,
-            "motionDetected": payload.motionDetected
+            "motion_detected": payload.motionDetected
         }
     elif payloadType == SmokeDetector:
         topic += "devices/smokedetector/" + payload.id

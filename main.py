@@ -7,11 +7,11 @@ import paho.mqtt.client as mqtt
 
 import homematicip
 from homematicip.home import Home
-from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor
+from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
+    ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, \
+    MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
-
-from pprint import pprint
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -30,10 +30,12 @@ client_id = f'homematicip-mqtt-{random.randint(0, 1000)}'
 client = mqtt.Client(client_id)
 home = Home()
 
+
 def main():
     config = homematicip.find_and_load_config_file()
     if config is None:
-        logger.error("No configuration file found. Run hmip_generate_auth_token.py and copy config.ini to a suitable location.")
+        logger.error("No configuration file found. Run hmip_generate_auth_token.py and copy config.ini to a suitable "
+                     "location.")
         return
 
     home.set_auth_token(config.auth_token)
@@ -41,8 +43,8 @@ def main():
 
     home.get_current_state()
 
-    client.on_connect = onMQTTConnect
-    client.on_message = onMQTTMessage
+    client.on_connect = on_mqtt_connect
+    client.on_message = on_mqtt_message
     try:
         client.connect(args.server, args.port)
     except Exception as err:
@@ -55,143 +57,151 @@ def main():
     except KeyboardInterrupt:
         return
 
-def onMQTTConnect(client, userdata, flags, rc):
+
+def on_mqtt_connect(mqtt_client, userdata, flags, rc):
     logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
 
     # subscribe to topic for changing the temperature for a heating group
-    client.subscribe("cmd/homematicip/groups/heating/+/set")
+    mqtt_client.subscribe("cmd/homematicip/groups/heating/+/set")
 
     # subscribe to topic for opening hoermann gate
-    client.subscribe("cmd/homematicip/devices/hoermanndrive/+/state")
+    mqtt_client.subscribe("cmd/homematicip/devices/hoermanndrive/+/state")
 
     # subscribe to topic for changing alarm status
-    client.subscribe("cmd/homematicip/home/alarm/+/state")
+    mqtt_client.subscribe("cmd/homematicip/home/alarm/+/state")
 
     logger.debug("Performing initial group sync")
     for group in home.groups:
-        updateHomematicObject(group)
+        update_homematic_object(group)
 
     logger.debug("Performing initial device sync")
     for device in home.devices:
-        updateHomematicObject(device)
+        update_homematic_object(device)
 
-    home.onEvent += onHomematicEvents
-    home.onWsError += onWebsocketError
+    home.onEvent += on_homematic_events
+    home.onWsError += on_websocket_error
     home.websocket_reconnect_on_error = False
     home.enable_events()
 
     logger.info("Running")
 
-def onMQTTMessage(client, userdata, msg):
+
+def on_mqtt_message(mqtt_client, userdata, msg):
     logger.info("Message received-> " + msg.topic + " " + str(msg.payload))
 
     value = msg.payload.decode("UTF-8")
 
     # parse topic
-    topicAsArray = msg.topic.split('/')
-    deviceOrGroup = topicAsArray[2]
-    type = topicAsArray[3]
-    id = topicAsArray[4]
+    topic_as_array = msg.topic.split('/')
+    device_or_group = topic_as_array[2]
+    type = topic_as_array[3]
+    id = topic_as_array[4]
 
-    if deviceOrGroup == "groups":
-        updateHomematicGroup(id, value)
-    elif deviceOrGroup == "devices":
-        updateHomematicDevice(id, value)
-    elif deviceOrGroup == "home":
-        updateHomematicHome(type, value)
+    if device_or_group == "groups":
+        update_homematic_group(id, value)
+    elif device_or_group == "devices":
+        update_homematic_device(id, value)
+    elif device_or_group == "home":
+        update_homematic_home(type, value)
     else:
-        logger.warning("Updating " + deviceOrGroup + " not yet implemented")
+        logger.warning("Updating " + device_or_group + " not yet implemented")
 
-def updateHomematicGroup(groupId, value):
+
+def update_homematic_group(group_id, value):
     try:
-        group =  home.search_group_by_id(groupId)
-        groupType = type(group)
-        errorCode = ''
-        if groupType == HeatingGroup:
+        group = home.search_group_by_id(group_id)
+        group_type = type(group)
+        error_code = ''
+        if group_type == HeatingGroup:
             result = group.set_point_temperature(value)
-            errorCode = result["errorCode"]
+            error_code = result["errorCode"]
         else:
-            logger.error("No updates allowed on groups of type " + str(groupType))
+            logger.error("No updates allowed on groups of type " + str(group_type))
 
-        if errorCode:
-            logger.error("Updating " + str(groupType)  + " failed with code: " + errorCode)
+        if error_code:
+            logger.error("Updating " + str(group_type) + " failed with code: " + error_code)
 
     except Exception as ex:
         logger.error("updateHomematicGroup failed: " + str(ex))
 
-def updateHomematicDevice(deviceId, value):
+
+def update_homematic_device(device_id, value):
     try:
-        device = home.search_device_by_id(deviceId)
-        deviceType = type(device)
-        errorCode = ''
-        if deviceType == HoermannDrivesModule:
+        device = home.search_device_by_id(device_id)
+        device_type = type(device)
+        error_code = ''
+        if device_type == HoermannDrivesModule:
             if value == "CLOSED":
-                doorCommand = DoorCommand.CLOSE
+                door_command = DoorCommand.CLOSE
             elif value == "OPEN":
-                doorCommand = DoorCommand.OPEN
+                door_command = DoorCommand.OPEN
             elif value == "STOP":
-                doorCommand = DoorCommand.STOP
+                door_command = DoorCommand.STOP
             elif value == "PARTIAL_OPEN":
-                doorCommand = DoorCommand.PARTIAL_OPEN
+                door_command = DoorCommand.PARTIAL_OPEN
             else:
                 logger.error("Invalid command for hoermann drive. Command: " + value)
                 return
-            result = device.send_door_command(doorCommand=doorCommand)
-            errorCode = result["errorCode"]
+            result = device.send_door_command(doorCommand=door_command)
+            error_code = result["errorCode"]
         else:
-            logger.error("No updates allowed on devices of type " + str(deviceType))
+            logger.error("No updates allowed on devices of type " + str(device_type))
 
-        if errorCode:
-            logger.error("Updating " + str(deviceType)  + " failed with code: " + errorCode)
+        if error_code:
+            logger.error("Updating " + str(device_type) + " failed with code: " + error_code)
 
     except Exception as ex:
         logger.error("updateHomematicDevice failed: " + str(ex))
 
-def updateHomematicHome(type, value):
+
+def update_homematic_home(type, value):
     try:
-        errorCode = ''
+        error_code = ''
         if type == "alarm":
             if value == 'ABSENCE_MODE':
-                internalActive = True
-                externalActive = True
+                internal_active = True
+                external_active = True
             elif value == 'PRESENCE_MODE':
-                internalActive = False
-                externalActive = True
+                internal_active = False
+                external_active = True
             else:
-                internalActive = False
-                externalActive = False
+                internal_active = False
+                external_active = False
 
-            home.set_security_zones_activation(internalActive, externalActive)
+            home.set_security_zones_activation(internal_active, external_active)
         else:
             logger.error("No updates allowed on home for type " + str(type))
 
-        if errorCode:
-            logger.error("Updating " + str(type)  + " failed with code: " + errorCode)
+        if error_code:
+            logger.error("Updating " + str(type) + " failed with code: " + error_code)
 
     except Exception as ex:
         logger.error("updateHomematicHome failed: " + str(ex))
 
-def onWebsocketError(err):
+
+def on_websocket_error(err):
     logger.error("Websocket disconnected, trying to reconnect: %s", err)
     home.disable_events()
     home.enable_events()
 
-def onHomematicEvents(eventList):
-    for event in eventList:
-        eventType = event["eventType"]
+
+def on_homematic_events(event_list):
+    for event in event_list:
+        event_type = event["eventType"]
         payload = event["data"]
 
-        logger.debug("Received event of type %s: %s", eventType, payload)
-        if not eventType in ("DEVICE_CHANGED", "GROUP_CHANGED", "HOME_CHANGED"):
+        logger.debug("Received event of type %s: %s", event_type, payload)
+        if event_type not in ("DEVICE_CHANGED", "GROUP_CHANGED", "HOME_CHANGED"):
             continue
 
-        updateHomematicObject(payload)
+        update_homematic_object(payload)
 
-def updateHomematicObject(payload):
-    payloadType = type(payload)
+
+def update_homematic_object(payload):
+    payload_type = type(payload)
     topic = "homematicip/"
 
-    if payloadType == HeatingGroup:
+    if payload_type == HeatingGroup:
         topic += "groups/heating/" + payload.id
         data = {
             "label": payload.label,
@@ -202,7 +212,7 @@ def updateHomematicObject(payload):
             "window": payload.windowState,
             "mode": payload.controlMode
         }
-    elif payloadType in (HeatingThermostat, HeatingThermostatCompact):
+    elif payload_type in (HeatingThermostat, HeatingThermostatCompact):
         topic += "devices/thermostat/" + payload.id
         data = {
             "low_battery": payload.lowBat,
@@ -210,13 +220,13 @@ def updateHomematicObject(payload):
             "temperature": payload.valveActualTemperature,
             "valve": payload.valvePosition
         }
-    elif payloadType in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
+    elif payload_type in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
         topic += "devices/window/" + payload.id
         data = {
             "low_battery": payload.lowBat,
             "state": payload.windowState
         }
-    elif payloadType == WallMountedThermostatPro:
+    elif payload_type == WallMountedThermostatPro:
         topic += "devices/wall_thermostat/" + payload.id
         data = {
             "low_battery": payload.lowBat,
@@ -224,7 +234,7 @@ def updateHomematicObject(payload):
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
         }
-    elif payloadType == WeatherSensor:
+    elif payload_type == WeatherSensor:
         topic += "devices/weather/" + payload.id
         data = {
             "low_battery": payload.lowBat,
@@ -241,12 +251,12 @@ def updateHomematicObject(payload):
             "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
             "vapor_amount": payload.vaporAmount
         }
-    elif payloadType == HoermannDrivesModule:
+    elif payload_type == HoermannDrivesModule:
         topic += "devices/hoermanndrive/" + payload.id
         data = {
             "state": payload.doorState
         }
-    elif payloadType == MotionDetectorIndoor:
+    elif payload_type == MotionDetectorIndoor:
         topic += "devices/motiondetector/" + payload.id
         data = {
             "low_battery": payload.lowBat,
@@ -254,37 +264,38 @@ def updateHomematicObject(payload):
             "illumination": payload.illumination,
             "motion_detected": payload.motionDetected
         }
-    elif payloadType == SmokeDetector:
+    elif payload_type == SmokeDetector:
         topic += "devices/smokedetector/" + payload.id
         data = {
             "low_battery": payload.lowBat
         }
-    elif payloadType == AlarmSirenIndoor:
+    elif payload_type == AlarmSirenIndoor:
         topic += "devices/alarmsiren/" + payload.id
         data = {
             "low_battery": payload.lowBat
         }
-    elif payloadType == Home:
+    elif payload_type == Home:
         topic += "home/alarm/" + payload.id
-        internalActive, externalActive = payload.get_security_zones_activation()
-        if internalActive and externalActive:
-            activationStatus = 'ABSENCE_MODE'
-        elif externalActive and not internalActive:
-            activationStatus = 'PRESENCE_MODE'
+        internal_active, external_active = payload.get_security_zones_activation()
+        if internal_active and external_active:
+            activation_status = 'ABSENCE_MODE'
+        elif external_active and not internal_active:
+            activation_status = 'PRESENCE_MODE'
         else:
-            activationStatus = 'OFF'
+            activation_status = 'OFF'
         data = {
-            "state": activationStatus
+            "state": activation_status
         }
     else:
-        logger.debug("Unhandled type: " + str(payloadType))
+        logger.debug("Unhandled type: " + str(payload_type))
         return
 
     for k, v in data.items():
-        fullTopic = topic + "/" + k
-        logger.debug("Publishing to %s: %s", fullTopic, v)
+        full_topic = topic + "/" + k
+        logger.debug("Publishing to %s: %s", full_topic, v)
         if not args.no_publish:
-            client.publish(fullTopic, v, qos=0, retain=True)
+            client.publish(full_topic, v, qos=0, retain=True)
+
 
 if __name__ == "__main__":
     main()

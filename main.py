@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 
 import homematicip
 from homematicip.home import Home
-from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro
+from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, LightSensor
 from homematicip.group import HeatingGroup
 
 logging.basicConfig(level=logging.INFO)
@@ -122,6 +122,16 @@ def updateHomematicObject(payload):
             "set": payload.setPointTemperature,
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
+        }
+
+    
+    elif payloadType == LightSensor:
+        topic += "devices/wall_lightsensort/" + payload.id
+        data = {
+            "averageIllumination": payload.averageIllumination,
+            "currentIllumination": payload.currentIllumination,
+            "highestIllumination": payload.highestIllumination,
+            "lowestIllumination": payload.lowestIllumination
         }
     else:
         return

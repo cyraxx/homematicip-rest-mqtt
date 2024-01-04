@@ -7,6 +7,8 @@ In its current state, it offers Homematic IP to MQTT functionality for a number 
 MQTT to Homematic IP functionality for a very limited number of devices and values. Additional devices are
 pretty trivial to implement so feel free to open a PR.
 
+![Example screenshot from MQTT explorer](example.png)
+
 # Instructions
 
 Install the module requirements using `pip install -r requirements.txt`.

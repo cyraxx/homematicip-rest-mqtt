@@ -121,12 +121,20 @@ MQTT topics:
 MQTT topics for commands:
 - `cmd/homematicip/devices/hoermanndrive/<device_id>/state`: `CLOSED`, `OPEN`, `STOP` or `PARTIAL_OPEN`
 
-## Home (slarm status)
-
-Homematic IP product codes: n/a
+## Home (alarm status)
 
 MQTT topics:
 - `homematicip/home/<home_id>/state`: Current alarm state (`OFF`, `ABSENCE_MODE`, `PRESENCE_MODE`)
 
 MQTT topics for commands:
 - `homematicip/home/<home_id>/state`: `OFF`, `ABSENCE_MODE` or `PRESENCE_MODE`
+
+## Light sensor
+
+Homematic IP product code: HMIP-SLO
+
+MQTT topics:
+- `homematicip/devices/light_sensor/current`: Current illumination
+- `homematicip/devices/light_sensor/average`: Average illumination
+- `homematicip/devices/light_sensor/highest`: Highest illumination
+- `homematicip/devices/light_sensor/lowest`: Lowest illumination

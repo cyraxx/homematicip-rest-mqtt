@@ -9,7 +9,7 @@ import homematicip
 from homematicip.home import Home
 from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
     ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, \
-    MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor
+    MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
 
@@ -19,6 +19,8 @@ logger = logging.getLogger()
 parser = argparse.ArgumentParser()
 parser.add_argument('--server', required=True, help="Address of the MQTT server")
 parser.add_argument('--port', type=int, default=1883, help="Port of the MQTT server")
+parser.add_argument('--username', help="Username for the MQTT server")
+parser.add_argument('--password', help="Password for the MQTT server")
 parser.add_argument('--debug', action="store_true", help="Enable debug logging")
 parser.add_argument('--no-publish', action="store_true", help="Don't actually publish messages (log only)")
 args = parser.parse_args()
@@ -46,6 +48,7 @@ def main():
     client.on_connect = on_mqtt_connect
     client.on_message = on_mqtt_message
     try:
+        client.username_pw_set(args.username, args.password)
         client.connect(args.server, args.port)
     except Exception as err:
         logger.error("Error connecting to MQTT server: %s", err)
@@ -285,6 +288,14 @@ def update_homematic_object(payload):
             activation_status = 'OFF'
         data = {
             "state": activation_status
+        }
+    elif payload_type == LightSensor:
+        topic += "devices/light_sensor/" + payload.id
+        data = {
+            "average": payload.averageIllumination,
+            "current": payload.currentIllumination,
+            "highest": payload.highestIllumination,
+            "lowest": payload.lowestIllumination
         }
     else:
         logger.debug("Unhandled type: " + str(payload_type))

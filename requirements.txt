@@ -1,2 +1,2 @@
 paho-mqtt
-homematicip>=1.0.5
+homematicip>=1.0.16

@@ -25,7 +25,7 @@ To run as a daemon using systemd, see `homematicip-rest-mqtt.service` for a star
 
 Property | MQTT topic (read) | MQTT topic (write)
 --- | --- | ---
-Current alarm state (`OFF`, `ABSENCE_MODE`, `PRESENCE_MODE`) | `homematicip/home/<home_id>/state` | `cmd/homematicip/home/<home_id>/state`
+Current alarm state (`OFF`, `ABSENCE_MODE`, `PRESENCE_MODE`) | `homematicip/home/alarm/<home_id>/state` | `cmd/homematicip/home/alarm/<home_id>/state`
 
 ## Heating group (aka room)
 

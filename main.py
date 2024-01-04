@@ -15,8 +15,8 @@ logger = logging.getLogger()
 parser = argparse.ArgumentParser()
 parser.add_argument('--server', required=True, help="Address of the MQTT server")
 parser.add_argument('--port', type=int, default=1883, help="Port of the MQTT server")
-parser.add_argument('--user', help="Usernam for mqtt Server")
-parser.add_argument('--pw',help="Psssword for mqtt Server")
+parser.add_argument('--username', help="Username for the MQTT server")
+parser.add_argument('--password', help="Password for the MQTT server")
 parser.add_argument('--debug', action="store_true", help="Enable debug logging")
 parser.add_argument('--no-publish', action="store_true", help="Don't actually publish messages (log only)")
 args = parser.parse_args()
@@ -40,7 +40,7 @@ def main():
 
     client.on_connect = onMQTTConnect
     try:
-        client.username_pw_set(args.user, args.pw)
+        client.username_pw_set(args.username, args.password)
         client.connect(args.server, args.port)
     except Exception as err:
         logger.error("Error connecting to MQTT server: %s", err)

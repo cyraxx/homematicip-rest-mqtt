@@ -68,7 +68,7 @@ def on_mqtt_connect(mqtt_client, userdata, flags, rc):
     mqtt_client.subscribe("cmd/homematicip/groups/heating/+/set")
 
     # subscribe to topic for opening hoermann gate
-    mqtt_client.subscribe("cmd/homematicip/devices/hoermanndrive/+/state")
+    mqtt_client.subscribe("cmd/homematicip/devices/hoermann_drive/+/state")
 
     # subscribe to topic for changing alarm status
     mqtt_client.subscribe("cmd/homematicip/home/alarm/+/state")
@@ -255,12 +255,12 @@ def update_homematic_object(payload):
             "vapor_amount": payload.vaporAmount
         }
     elif payload_type == HoermannDrivesModule:
-        topic += "devices/hoermanndrive/" + payload.id
+        topic += "devices/hoermann_drive/" + payload.id
         data = {
             "state": payload.doorState
         }
     elif payload_type == MotionDetectorIndoor:
-        topic += "devices/motiondetector/" + payload.id
+        topic += "devices/motion_detector/" + payload.id
         data = {
             "low_battery": payload.lowBat,
             "current_illumination": payload.currentIllumination,
@@ -268,12 +268,12 @@ def update_homematic_object(payload):
             "motion_detected": payload.motionDetected
         }
     elif payload_type == SmokeDetector:
-        topic += "devices/smokedetector/" + payload.id
+        topic += "devices/smoke_detector/" + payload.id
         data = {
             "low_battery": payload.lowBat
         }
     elif payload_type == AlarmSirenIndoor:
-        topic += "devices/alarmsiren/" + payload.id
+        topic += "devices/alarm_siren/" + payload.id
         data = {
             "low_battery": payload.lowBat
         }

@@ -63,3 +63,13 @@ Homematic IP product codes: HMIP-SWDO, HMIP-SWDO-I, HMIP-SWDM, HMIP-SWDM-B2, HMI
 MQTT topics:
 - `homematicip/devices/window/<device_id>/low_battery`: Low battery state
 - `homematicip/devices/window/<device_id>/state`: Current window state (`OPEN`,`CLOSED`,`TILTED`)
+
+## Light sensor
+
+Homematic IP product code: HMIP-SLO
+
+MQTT topics:
+- `homematicip/devices/light_sensor/current`: Current illumination
+- `homematicip/devices/light_sensor/average`: Average illumination
+- `homematicip/devices/light_sensor/highest`: Highest illumination
+- `homematicip/devices/light_sensor/lowest`: Lowest illumination

@@ -123,15 +123,13 @@ def updateHomematicObject(payload):
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
         }
-
-    
     elif payloadType == LightSensor:
-        topic += "devices/wall_lightsensort/" + payload.id
+        topic += "devices/light_sensor/" + payload.id
         data = {
-            "averageIllumination": payload.averageIllumination,
-            "currentIllumination": payload.currentIllumination,
-            "highestIllumination": payload.highestIllumination,
-            "lowestIllumination": payload.lowestIllumination
+            "current": payload.averageIllumination,
+            "illumination": payload.currentIllumination,
+            "highest": payload.highestIllumination,
+            "lowest": payload.lowestIllumination
         }
     else:
         return

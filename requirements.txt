@@ -1,2 +1,2 @@
-paho-mqtt
+paho-mqtt>=2.0
 homematicip>=1.1.0

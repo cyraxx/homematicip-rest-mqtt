@@ -29,7 +29,7 @@ if args.debug:
     logger.setLevel(logging.DEBUG)
 
 client_id = f'homematicip-mqtt-{random.randint(0, 1000)}'
-client = mqtt.Client(client_id)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id)
 home = Home()
 
 
@@ -61,8 +61,8 @@ def main():
         return
 
 
-def on_mqtt_connect(mqtt_client, userdata, flags, rc):
-    logger.info("MQTT connection status: %s", mqtt.connack_string(rc))
+def on_mqtt_connect(mqtt_client, userdata, flags, reason_code, properties):
+    logger.info("MQTT connection status: %s", mqtt.connack_string(reason_code))
 
     # subscribe to topic for changing the temperature for a heating group
     mqtt_client.subscribe("cmd/homematicip/groups/heating/+/set")

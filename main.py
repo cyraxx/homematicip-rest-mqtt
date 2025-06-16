@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import asyncio
 import logging
 import random
 
-import paho.mqtt.client as mqtt
+import aiomqtt
 
 import homematicip
-from homematicip.home import Home
+from homematicip.async_home import AsyncHome
 from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
     ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, \
     MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor
@@ -29,111 +30,121 @@ if args.debug:
     logger.setLevel(logging.DEBUG)
 
 client_id = f'homematicip-mqtt-{random.randint(0, 1000)}'
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id)
-home = Home()
+home = AsyncHome()
+mqtt_client = None
 
 
-def main():
+async def main():
+    global mqtt_client
+
     config = homematicip.find_and_load_config_file()
     if config is None:
         logger.error("No configuration file found. Run hmip_generate_auth_token.py and copy config.ini to a suitable "
                      "location.")
         return
 
-    home.set_auth_token(config.auth_token)
-    home.init(config.access_point)
-
-    home.get_current_state()
-
-    client.on_connect = on_mqtt_connect
-    client.on_message = on_mqtt_message
-    try:
-        client.username_pw_set(args.username, args.password)
-        client.connect(args.server, args.port)
-    except Exception as err:
-        logger.error("Error connecting to MQTT server: %s", err)
-        return
+    await home.init_async(config.access_point, config.auth_token)
+    await home.get_current_state_async()
 
     try:
-        while True:
-            client.loop()
-    except KeyboardInterrupt:
+        async with aiomqtt.Client(
+            hostname=args.server,
+            port=args.port,
+            username=args.username,
+            password=args.password,
+            identifier=client_id
+        ) as client:
+            mqtt_client = client
+
+            await setup_mqtt_client(client)
+            logger.info("MQTT connected, enabling Homematic events")
+
+            # Set up homematic event handling
+            home.onEvent += on_homematic_events
+            home.onWsError += on_websocket_error
+            home.websocket_reconnect_on_error = False
+            await home.enable_events()
+
+            logger.info("Running")
+
+            # Keep the client running
+            while True:
+                await asyncio.sleep(1)
+
+    except aiomqtt.MqttError as error:
+        logger.error(f"Error connecting to MQTT server: {error}")
+    except asyncio.exceptions.CancelledError:
         return
 
 
-def on_mqtt_connect(mqtt_client, userdata, flags, reason_code, properties):
-    logger.info("MQTT connection status: %s", mqtt.connack_string(reason_code))
-
-    # subscribe to topic for changing the temperature for a heating group
-    mqtt_client.subscribe("cmd/homematicip/groups/heating/+/set")
-
-    # subscribe to topic for opening hoermann gate
-    mqtt_client.subscribe("cmd/homematicip/devices/hoermann_drive/+/state")
-
-    # subscribe to topic for changing alarm status
-    mqtt_client.subscribe("cmd/homematicip/home/alarm/+/state")
+async def setup_mqtt_client(mqtt_client):
+    # Subscribe to topics
+    await mqtt_client.subscribe("cmd/homematicip/groups/heating/+/set")
+    await mqtt_client.subscribe("cmd/homematicip/devices/hoermann_drive/+/state")
+    await mqtt_client.subscribe("cmd/homematicip/home/alarm/+/state")
 
     logger.debug("Performing initial group sync")
     for group in home.groups:
-        update_homematic_object(group)
+        await process_homematic_payload(group)
 
     logger.debug("Performing initial device sync")
     for device in home.devices:
-        update_homematic_object(device)
+        await process_homematic_payload(device)
 
-    home.onEvent += on_homematic_events
-    home.onWsError += on_websocket_error
-    home.websocket_reconnect_on_error = False
-    home.enable_events()
-
-    logger.info("Running")
+    # Start message handler as a background task
+    asyncio.create_task(handle_mqtt_messages(mqtt_client))
 
 
-def on_mqtt_message(mqtt_client, userdata, msg):
-    logger.info("Message received-> " + msg.topic + " " + str(msg.payload))
+async def handle_mqtt_messages(mqtt_client):
+    async for message in mqtt_client.messages:
+        try:
+            logger.info(f"Message received-> {message.topic} {message.payload}")
 
-    value = msg.payload.decode("UTF-8")
+            value = message.payload.decode("UTF-8")
 
-    # parse topic
-    topic_as_array = msg.topic.split('/')
-    device_or_group = topic_as_array[2]
-    type = topic_as_array[3]
-    id = topic_as_array[4]
+            # parse topic
+            topic_as_array = message.topic.value.split('/')
+            device_or_group = topic_as_array[2]
+            type_name = topic_as_array[3]
+            id_value = topic_as_array[4]
 
-    if device_or_group == "groups":
-        update_homematic_group(id, value)
-    elif device_or_group == "devices":
-        update_homematic_device(id, value)
-    elif device_or_group == "home":
-        update_homematic_home(type, value)
-    else:
-        logger.warning("Updating " + device_or_group + " not yet implemented")
+            if device_or_group == "groups":
+                await update_homematic_group(id_value, value)
+            elif device_or_group == "devices":
+                await update_homematic_device(id_value, value)
+            elif device_or_group == "home":
+                await update_homematic_home(type_name, value)
+            else:
+                logger.warning(f"Updating {device_or_group} not yet implemented")
+        except Exception as e:
+            logger.error(f"Error processing message: {e}")
 
 
-def update_homematic_group(group_id, value):
+async def update_homematic_group(group_id, value):
     try:
         group = home.search_group_by_id(group_id)
-        group_type = type(group)
-        error_code = ''
-        if group_type == HeatingGroup:
-            result = group.set_point_temperature(value)
-            error_code = result["errorCode"]
-        else:
-            logger.error("No updates allowed on groups of type " + str(group_type))
+        error = None
 
-        if error_code:
-            logger.error("Updating " + str(group_type) + " failed with code: " + error_code)
+        if isinstance(group, HeatingGroup):
+            result = await group.set_point_temperature_async(float(value))
+            if not result.success:
+                error = result.text
+        else:
+            logger.error(f"No updates allowed on groups of type {type(group)}")
+
+        if error:
+            logger.error(f"Updating group {type(group)} failed: {error}")
 
     except Exception as ex:
-        logger.error("updateHomematicGroup failed: " + str(ex))
+        logger.error(f"update_homematic_group failed: {ex}")
 
 
-def update_homematic_device(device_id, value):
+async def update_homematic_device(device_id, value):
     try:
         device = home.search_device_by_id(device_id)
-        device_type = type(device)
-        error_code = ''
-        if device_type == HoermannDrivesModule:
+        error = None
+
+        if isinstance(device, HoermannDrivesModule):
             if value == "CLOSED":
                 door_command = DoorCommand.CLOSE
             elif value == "OPEN":
@@ -143,24 +154,25 @@ def update_homematic_device(device_id, value):
             elif value == "PARTIAL_OPEN":
                 door_command = DoorCommand.PARTIAL_OPEN
             else:
-                logger.error("Invalid command for hoermann drive. Command: " + value)
+                logger.error(f"Invalid command for hoermann drive. Command: {value}")
                 return
-            result = device.send_door_command(doorCommand=door_command)
-            error_code = result["errorCode"]
+            result = await device.send_door_command_async(doorCommand=door_command)
+            if not result.success:
+                error = result.text
         else:
-            logger.error("No updates allowed on devices of type " + str(device_type))
+            logger.error(f"No updates allowed on devices of type {type(device)}")
 
-        if error_code:
-            logger.error("Updating " + str(device_type) + " failed with code: " + error_code)
+        if error:
+            logger.error(f"Updating device {type(device)} failed: {error}")
 
     except Exception as ex:
-        logger.error("updateHomematicDevice failed: " + str(ex))
+        logger.error(f"update_homematic_device failed: {ex}")
 
 
-def update_homematic_home(type, value):
+async def update_homematic_home(type_name, value):
     try:
-        error_code = ''
-        if type == "alarm":
+        error = None
+        if type_name == "alarm":
             if value == 'ABSENCE_MODE':
                 internal_active = True
                 external_active = True
@@ -171,21 +183,19 @@ def update_homematic_home(type, value):
                 internal_active = False
                 external_active = False
 
-            home.set_security_zones_activation(internal_active, external_active)
+            await home.set_security_zones_activation_async(internal_active, external_active)
         else:
-            logger.error("No updates allowed on home for type " + str(type))
+            logger.error(f"No updates allowed on home for type {type_name}")
 
-        if error_code:
-            logger.error("Updating " + str(type) + " failed with code: " + error_code)
+        if error:
+            logger.error(f"Updating home {type_name} failed: {error}")
 
     except Exception as ex:
-        logger.error("updateHomematicHome failed: " + str(ex))
+        logger.error(f"update_homematic_home failed: {ex}")
 
 
-def on_websocket_error(err):
-    logger.error("Websocket disconnected, trying to reconnect: %s", err)
-    home.disable_events()
-    home.enable_events()
+async def on_websocket_error(err):
+    logger.error(f"Websocket error: {err}")
 
 
 def on_homematic_events(event_list):
@@ -193,19 +203,24 @@ def on_homematic_events(event_list):
         event_type = event["eventType"]
         payload = event["data"]
 
-        logger.debug("Received event of type %s: %s", event_type, payload)
+        logger.debug(f"Received event of type {event_type}: {payload}")
         if event_type not in ("DEVICE_CHANGED", "GROUP_CHANGED", "HOME_CHANGED"):
             continue
 
-        update_homematic_object(payload)
+        asyncio.create_task(process_homematic_payload(payload))
 
 
-def update_homematic_object(payload):
-    payload_type = type(payload)
+async def process_homematic_payload(payload):
+    global mqtt_client
+
+    if mqtt_client is None:
+        logger.debug(f"No MQTT client available to publish event for {payload}")
+        return
+
     topic = "homematicip/"
 
-    if payload_type == HeatingGroup:
-        topic += "groups/heating/" + payload.id
+    if isinstance(payload, HeatingGroup):
+        topic += f"groups/heating/{payload.id}"
         data = {
             "label": payload.label,
             "set": payload.setPointTemperature,
@@ -215,30 +230,30 @@ def update_homematic_object(payload):
             "window": payload.windowState,
             "mode": payload.controlMode
         }
-    elif payload_type in (HeatingThermostat, HeatingThermostatCompact):
-        topic += "devices/thermostat/" + payload.id
+    elif isinstance(payload, HeatingThermostat | HeatingThermostatCompact):
+        topic += f"devices/thermostat/{payload.id}"
         data = {
             "low_battery": payload.lowBat,
             "set": payload.setPointTemperature,
             "temperature": payload.valveActualTemperature,
             "valve": payload.valvePosition
         }
-    elif payload_type in (ShutterContact, ShutterContactMagnetic, ContactInterface, RotaryHandleSensor):
-        topic += "devices/window/" + payload.id
+    elif isinstance(payload, ShutterContact | ShutterContactMagnetic | ContactInterface | RotaryHandleSensor):
+        topic += f"devices/window/{payload.id}"
         data = {
             "low_battery": payload.lowBat,
             "state": payload.windowState
         }
-    elif payload_type == WallMountedThermostatPro:
-        topic += "devices/wall_thermostat/" + payload.id
+    elif isinstance(payload, WallMountedThermostatPro):
+        topic += f"devices/wall_thermostat/{payload.id}"
         data = {
             "low_battery": payload.lowBat,
             "set": payload.setPointTemperature,
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
         }
-    elif payload_type == WeatherSensor:
-        topic += "devices/weather/" + payload.id
+    elif isinstance(payload, WeatherSensor):
+        topic += f"devices/weather/{payload.id}"
         data = {
             "low_battery": payload.lowBat,
             "temperature": payload.actualTemperature,
@@ -254,31 +269,31 @@ def update_homematic_object(payload):
             "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
             "vapor_amount": payload.vaporAmount
         }
-    elif payload_type == HoermannDrivesModule:
-        topic += "devices/hoermann_drive/" + payload.id
+    elif isinstance(payload, HoermannDrivesModule):
+        topic += f"devices/hoermann_drive/{payload.id}"
         data = {
             "state": payload.doorState
         }
-    elif payload_type == MotionDetectorIndoor:
-        topic += "devices/motion_detector/" + payload.id
+    elif isinstance(payload, MotionDetectorIndoor):
+        topic += f"devices/motion_detector/{payload.id}"
         data = {
             "low_battery": payload.lowBat,
             "current_illumination": payload.currentIllumination,
             "illumination": payload.illumination,
             "motion_detected": payload.motionDetected
         }
-    elif payload_type == SmokeDetector:
-        topic += "devices/smoke_detector/" + payload.id
+    elif isinstance(payload, SmokeDetector):
+        topic += f"devices/smoke_detector/{payload.id}"
         data = {
             "low_battery": payload.lowBat
         }
-    elif payload_type == AlarmSirenIndoor:
-        topic += "devices/alarm_siren/" + payload.id
+    elif isinstance(payload, AlarmSirenIndoor):
+        topic += f"devices/alarm_siren/{payload.id}"
         data = {
             "low_battery": payload.lowBat
         }
-    elif payload_type == Home:
-        topic += "home/alarm/" + payload.id
+    elif isinstance(payload, AsyncHome):
+        topic += f"home/alarm/{payload.id}"
         internal_active, external_active = payload.get_security_zones_activation()
         if internal_active and external_active:
             activation_status = 'ABSENCE_MODE'
@@ -289,8 +304,8 @@ def update_homematic_object(payload):
         data = {
             "state": activation_status
         }
-    elif payload_type == LightSensor:
-        topic += "devices/light_sensor/" + payload.id
+    elif isinstance(payload, LightSensor):
+        topic += f"devices/light_sensor/{payload.id}"
         data = {
             "average": payload.averageIllumination,
             "current": payload.currentIllumination,
@@ -298,15 +313,21 @@ def update_homematic_object(payload):
             "lowest": payload.lowestIllumination
         }
     else:
-        logger.debug("Unhandled type: " + str(payload_type))
+        logger.debug(f"Unhandled type: {type(payload)}")
         return
 
     for k, v in data.items():
-        full_topic = topic + "/" + k
-        logger.debug("Publishing to %s: %s", full_topic, v)
+        full_topic = f"{topic}/{k}"
         if not args.no_publish:
-            client.publish(full_topic, v, qos=0, retain=True)
+            try:
+                await mqtt_client.publish(full_topic, v, qos=0, retain=True)
+                logger.debug(f"Published to {full_topic}: {v}")
+            except Exception as ex:
+                logger.error(f"Failed to publish to {full_topic}: {ex}")
+        else:
+            logger.info(f"Would publish to {full_topic}: {v}")
+
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

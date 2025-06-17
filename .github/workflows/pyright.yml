@@ -1,5 +1,8 @@
 name: Run Pyright type check
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]

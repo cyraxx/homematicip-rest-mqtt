@@ -10,7 +10,7 @@ import homematicip
 from homematicip.async_home import AsyncHome
 from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
     ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, WeatherSensorPlus, \
-    HoermannDrivesModule, MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor
+    HoermannDrivesModule, MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor, CarbonDioxideSensor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
 
@@ -332,6 +332,16 @@ async def process_homematic_payload(payload):
             "current": payload.currentIllumination,
             "highest": payload.highestIllumination,
             "lowest": payload.lowestIllumination
+        }
+    elif isinstance(payload, CarbonDioxideSensor):
+        topic += f"devices/carbon_dioxide_sensor/{payload.id}"
+        data = {
+            "concentration": payload.carbonDioxideConcentration,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "vapor": payload.vaporAmount,
+            "led": payload.carbonDioxideVisualisationEnabled,
+            "label": payload.label
         }
     else:
         logger.debug(f"Unhandled type: {type(payload)}")

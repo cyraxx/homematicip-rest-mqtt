@@ -1,2 +1,2 @@
-homematicip>=2.0.6
+homematicip>=2.4.0
 aiomqtt>=2.4.0

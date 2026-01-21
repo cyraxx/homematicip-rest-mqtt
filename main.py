@@ -9,8 +9,8 @@ import aiomqtt
 import homematicip
 from homematicip.async_home import AsyncHome
 from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
-    ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, \
-    MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor
+    ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, WeatherSensorPlus, \
+    HoermannDrivesModule, MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor, CarbonDioxideSensor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
 
@@ -269,6 +269,27 @@ async def process_homematic_payload(payload):
             "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
             "vapor_amount": payload.vaporAmount
         }
+    elif isinstance(payload, WeatherSensorPlus):
+        topic += f"devices/weather/{payload.id}"
+        data = {
+            "low_battery": payload.lowBat,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "illumination": payload.illumination,
+            "illumination_threshold_sunshine": payload.illuminationThresholdSunshine,
+            "raining": payload.raining,
+            "storm": payload.storm,
+            "sunshine": payload.sunshine,
+            "today_rainCounter": payload.todayRainCounter,
+            "total_rainCounter": payload.totalRainCounter,
+            "today_sunshine_duration": payload.todaySunshineDuration,
+            "total_sunshine_duration": payload.totalSunshineDuration,
+            "wind_value_type": payload.windValueType,
+            "wind_speed": payload.windSpeed,
+            "yesterday_rainCounter": payload.yesterdayRainCounter,
+            "yesterday_sunshine_duration": payload.yesterdaySunshineDuration,
+            "vapor_amount": payload.vaporAmount
+        }
     elif isinstance(payload, HoermannDrivesModule):
         topic += f"devices/hoermann_drive/{payload.id}"
         data = {
@@ -311,6 +332,16 @@ async def process_homematic_payload(payload):
             "current": payload.currentIllumination,
             "highest": payload.highestIllumination,
             "lowest": payload.lowestIllumination
+        }
+    elif isinstance(payload, CarbonDioxideSensor):
+        topic += f"devices/carbon_dioxide_sensor/{payload.id}"
+        data = {
+            "concentration": payload.carbonDioxideConcentration,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "vapor": payload.vaporAmount,
+            "led": payload.carbonDioxideVisualisationEnabled,
+            "label": payload.label
         }
     else:
         logger.debug(f"Unhandled type: {type(payload)}")

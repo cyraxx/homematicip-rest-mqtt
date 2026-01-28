@@ -63,6 +63,17 @@ Set point temperature | `homematicip/devices/wall_thermostat/<device_id>/set`
 Current temperature | `homematicip/devices/wall_thermostat/<device_id>/temperature`
 Current humidity | `homematicip/devices/wall_thermostat/<device_id>/humidity`
 
+## Wall mounted thermostat without display
+
+Homematic IP product codes: HMIP-STH
+
+Property | MQTT topic (read) | MQTT topic (write)
+--- | --- | ---
+Low battery state | `homematicip/devices/wall_thermostat/<device_id>/low_battery`
+Current temperature | `homematicip/devices/wall_thermostat/<device_id>/temperature`
+Current humidity | `homematicip/devices/wall_thermostat/<device_id>/humidity`
+Current vapor amount | `homematicip/devices/wall_thermostat/<device_id>/vapor_amount`
+
 ## Window/contact sensor
 
 Homematic IP product codes: HMIP-SWDO, HMIP-SWDO-I, HMIP-SWDM, HMIP-SWDM-B2, HMIP-SCI, HMIP-SRH

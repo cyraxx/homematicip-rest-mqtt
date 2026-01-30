@@ -9,7 +9,7 @@ import aiomqtt
 import homematicip
 from homematicip.async_home import AsyncHome
 from homematicip.device import HeatingThermostat, HeatingThermostatCompact, ShutterContact, ShutterContactMagnetic, \
-    ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, WeatherSensor, HoermannDrivesModule, \
+    ContactInterface, RotaryHandleSensor, WallMountedThermostatPro, TemperatureHumiditySensorWithoutDisplay, WeatherSensor, HoermannDrivesModule, \
     MotionDetectorIndoor, SmokeDetector, AlarmSirenIndoor, LightSensor
 from homematicip.group import HeatingGroup
 from homematicip.base.enums import DoorCommand
@@ -251,6 +251,14 @@ async def process_homematic_payload(payload):
             "set": payload.setPointTemperature,
             "temperature": payload.actualTemperature,
             "humidity": payload.humidity
+        }
+    elif isinstance(payload, TemperatureHumiditySensorWithoutDisplay):
+        topic += f"devices/temperature_humidity_sensor/{payload.id}"
+        data = {
+            "low_battery": payload.lowBat,
+            "temperature": payload.actualTemperature,
+            "humidity": payload.humidity,
+            "vapor_amount": payload.vaporAmount
         }
     elif isinstance(payload, WeatherSensor):
         topic += f"devices/weather/{payload.id}"

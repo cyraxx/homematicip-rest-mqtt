@@ -61,8 +61,6 @@ async def main():
 
             # Set up homematic event handling
             home.onEvent += on_homematic_events
-            home.onWsError += on_websocket_error
-            home.websocket_reconnect_on_error = False
             await home.enable_events()
 
             logger.info("Running")
@@ -192,10 +190,6 @@ async def update_homematic_home(type_name, value):
 
     except Exception as ex:
         logger.error(f"update_homematic_home failed: {ex}")
-
-
-async def on_websocket_error(err):
-    logger.error(f"Websocket error: {err}")
 
 
 def on_homematic_events(event_list):
